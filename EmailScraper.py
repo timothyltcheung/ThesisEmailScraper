@@ -12,57 +12,60 @@ solicitations in their fundraising outreach.
 """
 
 import openpyxl
-import imapclient, imaplib
+import imapclient
+import imaplib
 import pyzmail
-import re, os
+import re
+import os
 
-#Increase memory allowance
+#  Increase memory allowance
 imaplib._MAXLINE = 10000000
 
 # Load Excel Workbook
 wb = openpyxl.load_workbook(os.getcwd()+"\\WordFrequenciesData.xlsx")
 sheet = wb.get_sheet_by_name('Sheet1')
 
-#Regex to search each email by the search word in the cell and output to a frequency cell
+
+# Regex to search each email by the search word in the cell and output to a frequency cell
 def excelRE(Email, searchCell, freqCell):
     searchTerm = r'\b' + searchCell.value.lower() + r'\b'
     freqCell.value = len(re.compile(searchTerm).findall(Email))
 
-#Log into Gmail
 
+# Log into Gmail
 myemail = input('Please enter your email address: ')
 password = input('Please enter your password: ')
 imapObj = imapclient.IMAPClient('imap.gmail.com', ssl=True)
 imapObj.login(myemail, password)
 
-#Returns unique IDs for each email
+# Returns unique IDs for each email
 imapObj.select_folder('INBOX', readonly=True)
 allEmailUID = imapObj.search(['ALL'])
 
-#Loop through all emails
+# Loop through all emails
 for email in allEmailUID:
     rawMessage = imapObj.fetch(email, ['BODY[]'])
-    #Create PyzMessage Object
+    # Create PyzMessage Object
     try:
         message = pyzmail.PyzMessage.factory(rawMessage[email][b'BODY[]'])
     except KeyError:
         message = pyzmail.PyzMessage.factory(rawMessage[email]['BODY[]'])
-    #Parse Message text
+    # Parse Message text
     try:
-    #Get message text if email is plaintext
+    # Get message text if email is plaintext
         messageText = message.text_part.get_payload().decode(message.text_part.charset).lower()
     except AttributeError:
-    #Get message text if email is HTML
+    # Get message text if email is HTML
         messageText = message.html_part.get_payload().decode(message.html_part.charset).lower()
-    #Add Email address,Sender, Subject to Excel workbook
+    # Add Email address,Sender, Subject to Excel workbook
     sheet['A' + str(allEmailUID.index(email)+3)].value = message.get_addresses('from')[0][1]
     sheet['B' + str(allEmailUID.index(email)+3)].value = message.get_addresses('from')[0][0]
     sheet['C' + str(allEmailUID.index(email)+3)].value = message.get_subject()
-    for column in range(4,25):
-    #Call Regex function to populate frequency of search words in each column
-    #Row 2 contains the search terms separated by column
-        excelRE(messageText, sheet.cell(row = 2, column = column), sheet.cell(row = allEmailUID.index(email)+3, column = column))
+    for column in range(4, 25):
+    # Call Regex function to populate frequency of search words in each column
+    # Row 2 contains the search terms separated by column
+        excelRE(messageText, sheet.cell(row=2, column=column), sheet.cell(row=allEmailUID.index(email)+3, column=column))
 
-#Save workbook
+# Save workbook
 wb.save(os.getcwd()+"\\WordFrequenciesData.xlsx")
 wb.close()
